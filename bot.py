@@ -166,7 +166,13 @@ def check_appointments(category_name=DEFAULT_CATEGORY, service_name=DEFAULT_SERV
                     print("No free appointments found.")
                 else:
                     print("No appointments found (calendar empty).")
+                return False
             else:
+                target_slot = find_target_slot(slots, min_date_filter)
+                if min_date_filter and not target_slot:
+                    print(f"Appointments found, but none match criteria (>={min_date_filter}). Continuing search...")
+                    return False
+
                 # Group appointments by date
                 dates = {}
                 for s in slots:
@@ -203,17 +209,19 @@ def check_appointments(category_name=DEFAULT_CATEGORY, service_name=DEFAULT_SERV
                 
                 # If auto-booking is requested:
                 if auto_book:
-                    target_slot = find_target_slot(slots, min_date_filter)
                     if target_slot:
                         print(f"Selected target appointment matching filter (>={min_date_filter}): {target_slot.get('date_time')}")
                         fill_and_book_appointment(page, target_slot, USER_DATA, auto_submit)
                     else:
                         print(f"Appointments found, but none match criteria (>={min_date_filter}).")
                 
+                return True
+                
         except Exception as e:
             print(f"Error during check: {e}")
             page.screenshot(path="error_screenshot.png")
             print("Screenshot saved as error_screenshot.png.")
+            return False
         finally:
             browser.close()
 
@@ -226,7 +234,7 @@ if __name__ == "__main__":
     parser.add_argument("--submit", action="store_true", help="Actually click 'Termin buchen' to finalize booking")
     parser.add_argument("--min-date", type=str, default=MIN_DATE, help="Minimum date (YYYY-MM-DD, e.g. 2027-02-01)")
     parser.add_argument("--once", action="store_true", help="Run once and exit instead of continuous loop")
-    parser.add_argument("--interval", type=int, default=60, help="Interval between checks in seconds (default: 60)")
+    parser.add_argument("--interval", type=int, default=90, help="Interval between checks in seconds (default: 90)")
     
     args = parser.parse_args()
     
@@ -255,7 +263,10 @@ if __name__ == "__main__":
         check_appointments(selected_category, selected_service, auto_book=auto_book, auto_submit=auto_submit, min_date_filter=args.min_date)
     else:
         while True:
-            check_appointments(selected_category, selected_service, auto_book=auto_book, auto_submit=auto_submit, min_date_filter=args.min_date)
+            found = check_appointments(selected_category, selected_service, auto_book=auto_book, auto_submit=auto_submit, min_date_filter=args.min_date)
+            if found:
+                print("Termin found! Stopping bot.")
+                break
             time.sleep(args.interval)
 
 
